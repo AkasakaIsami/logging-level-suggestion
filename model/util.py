@@ -1,6 +1,11 @@
 import re
 from random import random
 
+import numpy as np
+import torch
+from matplotlib import pyplot as plt
+from sklearn import manifold
+
 
 def cut_word(str):
     """
@@ -129,3 +134,187 @@ def random_unit(p: float):
         return True
     else:
         return False
+
+
+def tensor2label(tensor: torch.Tensor) -> str:
+    if torch.equal(tensor, torch.tensor([1, 1, 1, 1, 1]).float()) \
+            or torch.equal(tensor, torch.tensor([0, 0, 0, 0, 1]).float()):
+        return 'error'
+
+    elif torch.equal(tensor, torch.tensor([1, 1, 1, 1, 0]).float()) \
+            or torch.equal(tensor, torch.tensor([0, 0, 0, 1, 0]).float()):
+        return 'warn'
+
+    elif torch.equal(tensor, torch.tensor([1, 1, 1, 0, 0]).float()) \
+            or torch.equal(tensor, torch.tensor([0, 0, 1, 0, 0]).float()):
+        return 'info'
+
+    elif torch.equal(tensor, torch.tensor([1, 1, 0, 0, 0]).float()) \
+            or torch.equal(tensor, torch.tensor([0, 1, 0, 0, 0]).float()):
+        return 'debug'
+
+    else:
+        return 'trace'
+
+
+def OR2OEN(tensor: torch.Tensor) -> torch.Tensor:
+    '''
+    ordinal到one-hot
+    '''
+    result = torch.randn(0, 5)
+
+    for i in range(tensor.shape[0]):
+        if torch.equal(tensor[i], torch.tensor([1, 1, 1, 1, 1]).float()):
+            result = torch.cat([result, torch.tensor([[0, 0, 0, 0, 1]]).float()], dim=0)
+
+        elif torch.equal(tensor[i], torch.tensor([1, 1, 1, 1, 0]).float()):
+            result = torch.cat([result, torch.tensor([[0, 0, 0, 1, 0]]).float()], dim=0)
+
+        elif torch.equal(tensor[i], torch.tensor([1, 1, 1, 0, 0]).float()):
+            result = torch.cat([result, torch.tensor([[0, 0, 1, 0, 0]]).float()], dim=0)
+
+        elif torch.equal(tensor[i], torch.tensor([1, 1, 0, 0, 0]).float()):
+            result = torch.cat([result, torch.tensor([[0, 1, 0, 0, 0]]).float()], dim=0)
+
+        else:
+            result = torch.cat([result, torch.tensor([[1, 0, 0, 0, 0]]).float()], dim=0)
+
+    return result
+
+
+def idx2index(idx: torch.Tensor) -> torch.Tensor:
+    """
+    根据稀疏矩阵求index
+    """
+    index = []
+    size = idx.shape[0]
+    for i in range(size):
+        if idx[i].item() == 1:
+            index.append(i)
+    return torch.tensor(index).long()
+
+
+def transact(tensor: torch.Tensor) -> torch.Tensor:
+    """
+    把预测值转换成ordinal vector
+    """
+    size = tensor.shape[0]
+    result = torch.zeros(size, 5)
+    for i in range(size):
+        for j in range(5):
+            if tensor[i][j] > 0.5:
+                result[i][j] = 1
+            else:
+                break
+    return result
+
+
+def AOD(ys: torch.Tensor, y_hats: torch.Tensor) -> float:
+    """
+    计算自定义指标 Average Ordinal Distance Score
+    """
+
+    def Dis(a_level: str, s_level) -> int:
+        """
+        For each logging statement and its suggested log level
+        Dis(a, s) is the distance between the actual log level a i and the suggested log level si
+        """
+        idx = {
+            'error': 4,
+            'warn': 3,
+            'info': 2,
+            'debug': 1,
+            'trace': 0,
+        }
+
+        return abs(idx[a_level] - idx[s_level])
+
+    def MaxDis(level: str) -> int:
+        """
+        MaxDis(a) is the maximum possible distance of the actual log level a
+        """
+        maxdis = {
+            'error': 4,
+            'warn': 3,
+            'info': 2,
+            'debug': 3,
+            'trace': 4,
+        }
+        return maxdis[level]
+
+    AOD = 0
+    N = y_hats.shape[0]
+    for i in range(N):
+        y_hat = y_hats[i]
+        y_hat = tensor2label(y_hat)
+        y = ys[i]
+        y = tensor2label(y)
+
+        AOD += 1 - Dis(y, y_hat) / MaxDis(y)
+    AOD /= N
+    return AOD
+
+
+def class_acc(ys: torch.Tensor, y_hats: torch.Tensor) -> dict:
+    """
+    计算每个类分别的准确度
+    """
+    all = {
+        'error': 0,
+        'warn': 0,
+        'info': 0,
+        'debug': 0,
+        'trace': 0,
+    }
+
+    hit = {
+        'error': 0,
+        'warn': 0,
+        'info': 0,
+        'debug': 0,
+        'trace': 0,
+    }
+
+    size = y_hats.shape[0]
+    for i in range(size):
+        y_hat = y_hats[i]
+        y_hat = tensor2label(y_hat)
+        y = ys[i]
+        y = tensor2label(y)
+
+        all[y] += 1
+        if y == y_hat:
+            hit[y] += 1
+
+    result = {
+        'error': float_to_percent(hit['error'] / all['error']),
+        'warn': float_to_percent(hit['warn'] / all['warn']),
+        'info': float_to_percent(hit['info'] / all['info']),
+        'debug': float_to_percent(hit['debug'] / all['debug']),
+        'trace': float_to_percent(hit['trace'] / all['trace']),
+    }
+
+    return result
+
+
+def visual(x, y, epoch):
+    # t-SNE的最终结果的降维与可视化
+    tsne = manifold.TSNE(n_components=2, init='pca', random_state=0, )
+    x = tsne.fit_transform(x)
+    x_min, x_max = np.min(x, 0), np.max(x, 0)
+    x = (x - x_min) / (x_max - x_min)
+
+    for i in range(x.shape[0]):
+        plt.text(x[i, 0],
+                 x[i, 1],
+                 str(y[i]),
+                 color=plt.cm.Set1(y[i]))
+    plt.title(f'the NO {epoch} epoch result')
+
+    f = plt.gcf()  # 获取当前图像
+    if epoch == -1:
+        f.savefig(f'./result/test.png')
+    else:
+        f.savefig(f'./result/{epoch}.png')
+
+    f.clear()  # 释放内存

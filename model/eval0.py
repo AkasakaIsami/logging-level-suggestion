@@ -4,14 +4,17 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from matplotlib import pyplot as plt
-from sklearn import manifold
-from sklearn.metrics import accuracy_score
+
+from sklearn.metrics import accuracy_score, roc_auc_score
 from torch import nn
 from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
-from util import float_to_percent
+from util import float_to_percent, transact, OR2OEN, tensor2label, class_acc, idx2index, AOD, visual
+
+"""
+完成实验0：AST根节点 + RNN (只到当前语句)
+"""
 
 
 class MyLSTM(nn.Module):
@@ -24,6 +27,7 @@ class MyLSTM(nn.Module):
         self.hidden_size = 64
 
         self.lstm = nn.LSTM(input_size=128, hidden_size=64, num_layers=self.num_layers, batch_first=True)
+        self.dropout = nn.Dropout(p=0.2)
         self.linear = nn.Linear(64, 5)
         self.act = nn.Sigmoid()
 
@@ -36,80 +40,19 @@ class MyLSTM(nn.Module):
             self.device)
 
         output, _ = self.lstm(x, (h_0.detach(), c_0.detach()))
-
+        output = self.dropout(output)
         pred = self.linear(output[:, -1, :])
         pred = self.act(pred)
         return output[:, -1, :], pred
 
 
-def idx2index(idx: torch.Tensor) -> torch.Tensor:
-    """
-    根据稀疏矩阵求index
-    """
-    index = []
-    size = idx.shape[0]
-    for i in range(size):
-        if idx[i].item() == 1:
-            index.append(i)
-    return torch.tensor(index).long()
-
-
-def visual(x, y, epoch):
-    # t-SNE的最终结果的降维与可视化
-    tsne = manifold.TSNE(n_components=2, init='pca', random_state=0, )
-    x = tsne.fit_transform(x)
-    x_min, x_max = np.min(x, 0), np.max(x, 0)
-    x = (x - x_min) / (x_max - x_min)
-
-    plt.figure(figsize=(10, 5))
-    plt.subplot(121)
-    plt.scatter(x[:, 0], x[:, 1], c=y, label="t-SNE")
-    plt.legend()
-
-    # for i in range(x.shape[0]):
-    #     plt.text(x[i, 0],
-    #              x[i, 1],
-    #              str(y[i]),
-    #              color=plt.cm.Set1(y[i]))
-
-    # plt.xticks([])  # 去掉横坐标值
-    # plt.yticks([])  # 去掉纵坐标值
-    f = plt.gcf()  # 获取当前图像
-    if epoch == -1:
-        f.savefig(f'./result/test.png')
-    else:
-        f.savefig(f'./result/{epoch}.png')
-
-    f.clear()  # 释放内存
-    plt.show()
-
-
-def transact(tensor: torch.Tensor) -> torch.Tensor:
-    """
-    把预测值转换成ordinal vector
-    """
-    size = tensor.shape[0]
-    result = torch.zeros(size, 5)
-    for i in range(size):
-        for j in range(5):
-            if tensor[i][j] > 0.5:
-                result[i][j] = 1
-            else:
-                break
-    return result
-
-
 if __name__ == '__main__':
-    """
-    完成实验0：AST根节点 + RNN (只到当前语句)
-    """
-
     # 第一步：训练配置
     project = 'kafkademo'
     # 不支持批处理！！
-    BS = 5
-    LR = 1e-4
-    EPOCHS = 20
+    BS = 20
+    LR = 5e-3
+    EPOCHS = 10
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集
@@ -164,8 +107,6 @@ if __name__ == '__main__':
             ids.append(data.id + '@' + str(data.line.item()))
             max_len = seq.shape[0] if seq.shape[0] > max_len else max_len
 
-        # xs = pad_sequence(xs, batch_first=True)
-
         # xs需要在前面补0
         # 先找到最长的长度
         for i in range(len(xs)):
@@ -201,7 +142,7 @@ if __name__ == '__main__':
     model = MyLSTM().to(device)
     parameters = model.parameters()
     optimizer = torch.optim.Adam(parameters, lr=LR)
-    loss_function = torch.nn.MSELoss().to(device)
+    loss_function = torch.nn.BCELoss().to(device)
 
     # 定义用于评估预测结果的东西
     best_acc = 0.0
@@ -231,10 +172,11 @@ if __name__ == '__main__':
             if total_train_step % 100 == 0:
                 print(f"训练次数: {total_train_step}, Loss: {loss.item()}")
 
-        # 验证
+        # ————————————————————————————————————————————————————————————————————————————————————————————————
+        # 验证集
         total_val_loss = 0.0
-        y_hat_total = torch.randn(0).to(device)
-        y_total = torch.randn(0).to(device)
+        y_hat_total = torch.randn(0, 5).to(device)
+        y_total = torch.randn(0, 5).to(device)
 
         xs = torch.randn(0, 64)
         ys = []
@@ -248,13 +190,11 @@ if __name__ == '__main__':
 
                 # 用来计算整体指标
                 total_val_loss += loss.item()
-
                 y_hat = transact(y_hat).to(device)
+                y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
+                y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
 
-                y_hat_total = torch.cat([y_hat_total, y_hat])
-                y_total = torch.cat([y_total, y])
-
-                # 根据实际lable
+                # 这里帮助可视化
                 size = len(y)
                 for j in range(size):
                     label = torch.index_select(y.cpu(), dim=0, index=torch.tensor([j]))
@@ -275,7 +215,11 @@ if __name__ == '__main__':
         print(f"验证集整体Loss: {total_val_loss}")
 
         acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
+        auc = roc_auc_score(y_total.cpu(), y_hat_total.cpu())
+        aod = AOD(y_total.cpu(), y_hat_total.cpu())
         print(f"验证集 accuracy_score: {float_to_percent(acc)}")
+        print(f"验证集 auc: {float_to_percent(auc)}")
+        print(f"验证集 aod: {float_to_percent(aod)}")
 
         if acc > best_acc:
             print(f"***当前模型的平衡准确率表现最好，被记为表现最好的模型***\n")
@@ -288,3 +232,94 @@ if __name__ == '__main__':
         ys = np.array(ys)
 
         visual(xs, ys, epoch + 1)
+
+    # ————————————————————————————————————————————————————————————————————————————————————————————————
+    # 测试集
+
+    correct = {}
+    wrong = {}
+
+    total_val_loss = 0.0
+    y_hat_total = torch.randn(0, 5).to(device)
+    y_total = torch.randn(0, 5).to(device)
+
+    xs = torch.randn(0, 64)
+    ys = []
+
+    record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')
+
+    model.eval()
+    with torch.no_grad():
+        for i, (x, y, ids) in enumerate(test_loader):
+            h, y_hat = model(x.to(device))
+            y = y.to(device)
+            loss = loss_function(y_hat, y)
+
+            # 用来计算整体指标
+            total_val_loss += loss.item()
+            y_hat = transact(y_hat).to(device)
+            y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
+            y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
+
+            # 这里帮助可视化
+            size = len(y)
+            for j in range(size):
+                label = torch.index_select(y.cpu(), dim=0, index=torch.tensor([j]))
+                temph = torch.index_select(h.cpu(), dim=0, index=torch.tensor([j]))
+                xs = torch.cat([xs, temph], dim=0)
+                if torch.equal(label, torch.tensor([[1, 1, 1, 1, 1]]).float()):
+                    ys.append(4)
+                elif torch.equal(label, torch.tensor([[1, 1, 1, 1, 0]]).float()):
+                    ys.append(3)
+                elif torch.equal(label, torch.tensor([[1, 1, 1, 0, 0]]).float()):
+                    ys.append(2)
+                elif torch.equal(label, torch.tensor([[1, 1, 0, 0, 0]]).float()):
+                    ys.append(1)
+                elif torch.equal(label, torch.tensor([[1, 0, 0, 0, 0]]).float()):
+                    ys.append(0)
+
+            # 我们记录所有预测错误的语句
+            for j in range(size):
+                fac = y.cpu()[j]
+                pre = y_hat.cpu()[j]
+                id = ids[j]
+
+                if torch.equal(fac, pre):
+                    correct[id] = tensor2label(fac)
+                else:
+                    wrong[id] = 'expecting ' + tensor2label(fac) + ' but got ' + tensor2label(pre)
+
+    print(f"测试集整体Loss: {total_val_loss}")
+
+    acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
+    auc = roc_auc_score(y_total.cpu(), y_hat_total.cpu())
+    class_acc = class_acc(y_total.cpu(), y_hat_total.cpu())
+    aod = AOD(y_total.cpu(), y_hat_total.cpu())
+    print(f"测试集 accuracy_score: {float_to_percent(acc)}")
+    print(f"测试集 auc: {float_to_percent(auc)}")
+    print(f"测试集 aod: {float_to_percent(aod)}")
+    print(f"测试集 各类别准确率: {class_acc}")
+
+    print(f"***保存tsne中***\n")
+
+    xs = xs.numpy()
+    ys = np.array(ys)
+
+    visual(xs, ys, -1)
+
+    print(f"***写入测试集测试结果中***\n")
+    record_file.write('预测正确的:\n')
+    num = 0
+    for key, value in correct.items():
+        record_file.write(f"    -{num}. {key} : {value}\n")
+        num += 1
+
+    record_file.write('——————————————————————————————————————————————————————\n')
+
+    record_file.write('预测错误的:\n')
+    num = 0
+    for key, value in wrong.items():
+        record_file.write(f"    -{num}. {key} : {value}\n")
+        num += 1
+
+    record_file.close()

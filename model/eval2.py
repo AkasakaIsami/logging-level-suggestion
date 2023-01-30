@@ -8,12 +8,15 @@ from matplotlib import pyplot as plt
 from sklearn import manifold
 from sklearn.metrics import accuracy_score
 from torch import nn
-from torch.nn.utils.rnn import pad_sequence
+from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
 from util import float_to_percent
 
+"""
+完成实验2：AST pooling + RNN (只到当前语句)
+"""
 
 class MyLSTM(nn.Module):
     def __init__(self):
@@ -31,12 +34,22 @@ class MyLSTM(nn.Module):
     def forward(self, x):
         batch_size, seq_len = x.shape[0], x.shape[1]
 
-        h_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).to(self.device)
-        c_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).to(self.device)
+        # 首先对x进行压缩
+        # x = pack_padded_sequence(x, x.shape[0], batch_first=True)
 
-        output, _ = self.lstm(x, (h_0, c_0))
-        pred = self.linear(output)
-        pred = pred[:, -1, :]
+        h_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).requires_grad_().to(
+            self.device)
+        c_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).requires_grad_().to(
+            self.device)
+
+        output, _ = self.lstm(x, (h_0.detach(), c_0.detach()))
+
+        # 过完lstm解压
+        # output, _ = pad_packed_sequence(output, batch_first=True)
+
+        # 解压完后过线性层，再根据index取出该batch内所有的回归结果
+
+        pred = self.linear(output[:, -1, :])
         pred = self.act(pred)
         return output[:, -1, :], pred
 
@@ -60,19 +73,19 @@ def visual(x, y, epoch):
     x_min, x_max = np.min(x, 0), np.max(x, 0)
     x = (x - x_min) / (x_max - x_min)
 
-    # plt.figure(figsize=(10, 5))
-    # plt.subplot(121)
-    # plt.scatter(x[:, 0], x[:, 1], c=y, label="t-SNE")
-    # plt.legend()
+    plt.figure(figsize=(10, 5))
+    plt.subplot(121)
+    plt.scatter(x[:, 0], x[:, 1], c=y, label="t-SNE")
+    plt.legend()
 
-    for i in range(x.shape[0]):
-        plt.text(x[i, 0],
-                 x[i, 1],
-                 str(y[i]),
-                 color=plt.cm.Set1(y[i]))
+    # for i in range(x.shape[0]):
+    #     plt.text(x[i, 0],
+    #              x[i, 1],
+    #              str(y[i]),
+    #              color=plt.cm.Set1(y[i]))
 
-    plt.xticks([])  # 去掉横坐标值
-    plt.yticks([])  # 去掉纵坐标值
+    # plt.xticks([])  # 去掉横坐标值
+    # plt.yticks([])  # 去掉纵坐标值
     f = plt.gcf()  # 获取当前图像
     if epoch == -1:
         f.savefig(f'./result/test.png')
@@ -105,7 +118,8 @@ if __name__ == '__main__':
 
     # 第一步：训练配置
     project = 'kafkademo'
-    BS = 10
+    # 不支持批处理！！
+    BS = 5
     LR = 1e-4
     EPOCHS = 20
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -198,8 +212,9 @@ if __name__ == '__main__':
 
         # 训练
         model.train()
-        for i, (x, y, ids) in enumerate(train_loader):
+        for data in enumerate(train_loader):
             model.zero_grad()
+
             _, y_hat = model(x.to(device))
             y = y.to(device)
             loss = loss_function(y_hat, y)
@@ -231,6 +246,8 @@ if __name__ == '__main__':
                 total_val_loss += loss.item()
 
                 y_hat = transact(y_hat).to(device)
+                print(y_hat)
+                print(y)
 
                 y_hat_total = torch.cat([y_hat_total, y_hat])
                 y_total = torch.cat([y_total, y])
