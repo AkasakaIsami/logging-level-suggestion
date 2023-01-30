@@ -201,7 +201,8 @@ if __name__ == '__main__':
         for i, (x, y, ids) in enumerate(train_loader):
             model.zero_grad()
             _, y_hat = model(x.to(device))
-            loss = loss_function(y_hat, y.to(device))
+            y = y.to(device)
+            loss = loss_function(y_hat, y)
 
             optimizer.zero_grad()
             loss.backward()
@@ -216,19 +217,20 @@ if __name__ == '__main__':
         y_hat_total = torch.randn(0).to(device)
         y_total = torch.randn(0).to(device)
 
-        xs = torch.randn(0, 64).to(device)
+        xs = torch.randn(0, 64)
         ys = []
 
         model.eval()
         with torch.no_grad():
             for i, (x, y, ids) in enumerate(val_loader):
                 h, y_hat = model(x.to(device))
-                loss = loss_function(y_hat, y.to(device))
+                y = y.to(device)
+                loss = loss_function(y_hat, y)
 
                 # 用来计算整体指标
                 total_val_loss += loss.item()
 
-                y_hat = transact(y_hat)
+                y_hat = transact(y_hat).to(device)
 
                 y_hat_total = torch.cat([y_hat_total, y_hat])
                 y_total = torch.cat([y_total, y])
@@ -236,8 +238,8 @@ if __name__ == '__main__':
                 # 根据实际lable
                 size = len(y)
                 for j in range(size):
-                    label = torch.index_select(y, dim=0, index=torch.tensor([j]).to(device))
-                    temph = torch.index_select(h, dim=0, index=torch.tensor([j]).to(device))
+                    label = torch.index_select(y.cpu(), dim=0, index=torch.tensor([j]))
+                    temph = torch.index_select(h.cpu(), dim=0, index=torch.tensor([j]))
                     xs = torch.cat([xs, temph], dim=0)
 
                     if torch.equal(label, torch.tensor([[1, 1, 1, 1, 1]]).float()):
