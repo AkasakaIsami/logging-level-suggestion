@@ -4,12 +4,10 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from keras.layers.rnn import rnn_utils
 from matplotlib import pyplot as plt
 from sklearn import manifold
 from sklearn.metrics import accuracy_score
 from torch import nn
-from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
@@ -32,20 +30,12 @@ class MyLSTM(nn.Module):
     def forward(self, x):
         batch_size, seq_len = x.shape[0], x.shape[1]
 
-        # 首先对x进行压缩
-        # x = pack_padded_sequence(x, x.shape[0], batch_first=True)
-
         h_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).requires_grad_().to(
             self.device)
         c_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).requires_grad_().to(
             self.device)
 
         output, _ = self.lstm(x, (h_0.detach(), c_0.detach()))
-
-        # 过完lstm解压
-        # output, _ = pad_packed_sequence(output, batch_first=True)
-
-        # 解压完后过线性层，再根据index取出该batch内所有的回归结果
 
         pred = self.linear(output[:, -1, :])
         pred = self.act(pred)
@@ -142,12 +132,16 @@ if __name__ == '__main__':
                                                             lengths=[train_len, val_len, test_len],
                                                             generator=torch.Generator().manual_seed(0))
 
+    print(
+        f"数据集切分完成，总共{len(dataset)}条数据，其中训练集{len(train_dataset)}条，验证集{len(val_dataset)}条，测试集{len(test_dataset)}条，")
+
 
     # 第四步 定义数据获取batch格式
     def my_collate_fn(batch):
         xs = []
         ys = []
         ids = []
+        max_len = 0
 
         for data in batch:
             method = data.id
@@ -168,7 +162,20 @@ if __name__ == '__main__':
             xs.append(seq)
             ys.append(y)
             ids.append(data.id + '@' + str(data.line.item()))
-        xs = pad_sequence(xs, batch_first=True)
+            max_len = seq.shape[0] if seq.shape[0] > max_len else max_len
+
+        # xs = pad_sequence(xs, batch_first=True)
+
+        # xs需要在前面补0
+        # 先找到最长的长度
+        for i in range(len(xs)):
+            seq = xs[i]
+            length = seq.shape[0]
+            for j in range(max_len - length):
+                xs[i] = torch.cat([torch.zeros(1, 128), xs[i]], dim=0)
+
+        # 补完以后把所有的拼起来
+        xs = torch.stack([x for x in xs], dim=0)
         ys = torch.cat([y for y in ys], dim=0).float()
 
         return xs, ys, ids
