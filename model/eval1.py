@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 from matplotlib import pyplot as plt
 from sklearn import manifold
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_score
+from sklearn.metrics import accuracy_score
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import random_split, DataLoader
@@ -24,8 +24,7 @@ class MyLSTM(nn.Module):
         self.num_directions = 1  # 单向LSTM
         self.hidden_size = 64
 
-        self.lstm = nn.LSTM(input_size=128, hidden_size=64, num_layers=self.num_layers, batch_first=True,
-                            dropout=0.2)
+        self.lstm = nn.LSTM(input_size=128, hidden_size=64, num_layers=self.num_layers, batch_first=True)
         self.linear = nn.Linear(64, 5)
         self.act = nn.Sigmoid()
 
@@ -105,8 +104,8 @@ if __name__ == '__main__':
     """
 
     # 第一步：训练配置
-    project = 'mydemo'
-    BS = 2
+    project = 'kafkademo'
+    BS = 10
     LR = 1e-4
     EPOCHS = 20
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

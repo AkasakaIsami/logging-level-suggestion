@@ -60,7 +60,7 @@ public class CFG_ASTPrinter2 {
                             tempNode.getAttributes().set(0, "identifier='mask'");
                         }
                     }
-                    str.append(System.lineSeparator()).append(par.getDotNum()).append(" [label=\"").append(DotPrintFilter.filterQuotation(par.getOriginalCodeStr())).append("\" , line=").append(par.getCodeLineNum()).append(", isLogStmt=\"").append(isLogStmt).append("\", level=" + level + "];");
+                    str.append(System.lineSeparator()).append(par.getDotNum()).append(" [label=\"").append(DotPrintFilter.filterQuotation(par.getOriginalCodeStr())).append("\" , line=").append(par.getCodeLineNum()).append(", isLogStmt=\"").append(isLogStmt).append("\", level=\"" + level + "\"];");
                 } else {
                     str.append(System.lineSeparator()).append(par.getDotNum()).append(" [label=\"").append(DotPrintFilter.filterQuotation(par.getOriginalCodeStr())).append("\" , line=").append(par.getCodeLineNum()).append(", isLogStmt=\"").append(isLogStmt).append("\"];");
                 }
@@ -118,7 +118,7 @@ public class CFG_ASTPrinter2 {
                                 tempNode.getAttributes().set(0, "identifier='mask'");
                             }
                         }
-                        str.append(System.lineSeparator()).append(child.getDotNum()).append(" [label=\"").append(DotPrintFilter.filterQuotation(child.getOriginalCodeStr())).append("\" , line=").append(child.getCodeLineNum()).append(", isLogStmt=\"").append(isLogStmt).append("\", level=" + level + "];");
+                        str.append(System.lineSeparator()).append(child.getDotNum()).append(" [label=\"").append(DotPrintFilter.filterQuotation(child.getOriginalCodeStr())).append("\" , line=").append(child.getCodeLineNum()).append(", isLogStmt=\"").append(isLogStmt).append("\", level=\"" + level + "\"];");
                     } else {
                         str.append(System.lineSeparator()).append(child.getDotNum()).append(" [label=\"").append(DotPrintFilter.filterQuotation(child.getOriginalCodeStr())).append("\" , line=").append(child.getCodeLineNum()).append(", isLogStmt=\"").append(isLogStmt).append("\"];");
                     }

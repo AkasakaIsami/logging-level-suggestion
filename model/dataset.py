@@ -224,10 +224,11 @@ class MyDataset(InMemoryDataset, ABC):
             lines.append(int(line))
 
             # 判断是不是日志语句
-            isLogStmt = 'true' in node.get_attributes()['isLogStmt']
+            isLogStmt = '"true"' in node.get_attributes()['isLogStmt']
 
             if isLogStmt:
                 level = node.get_attributes()['level']
+                level = level[1:len(level) - 1]
 
                 # TODO: 暂时无法解析的日志（Lambda语句的case）算作正常语句！
                 if level in levels:
