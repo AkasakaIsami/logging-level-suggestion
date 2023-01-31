@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, Linear, BatchNorm, GATConv
+from torch_geometric.nn import GCNConv, Linear, BatchNorm, GATConv, global_max_pool, RGCNConv
 
 from util import idx2index
 
@@ -128,3 +128,55 @@ class MyOutGAT(nn.Module):
         h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
         out = torch.sigmoid(self.mlp(h))
         return h, out
+
+
+class MyOutRGCN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        in_channels = 128
+        hidden_channels = 128
+        out_channels = 5
+
+        self.conv_0 = RGCNConv(in_channels, hidden_channels, num_relations=2)
+        self.conv_1 = RGCNConv(hidden_channels, hidden_channels, num_relations=2)
+        self.mlp = Linear(hidden_channels, out_channels, weight_initializer='kaiming_uniform')
+
+    def forward(self, data):
+        x = data.x
+        edge_index = data.edge_index
+        edge_type = data.edge_type
+
+        h = F.leaky_relu_(self.conv_0(x, edge_index, edge_type))
+        h = F.leaky_relu_(self.conv_1(h, edge_index, edge_type))
+
+        idx = data.idx
+        h = torch.index_select(h, dim=0, index=idx2index(idx))
+        out = torch.sigmoid(self.mlp(h))
+        return h, out
+
+
+class MyInGCN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        in_channels = 128
+        hidden_channels = 100
+        out_channels = 64
+
+        self.conv_0 = GCNConv(in_channels, hidden_channels)
+        self.conv_1 = GCNConv(hidden_channels, hidden_channels)
+        self.mlp = Linear(hidden_channels, out_channels, weight_initializer='kaiming_uniform')
+
+    def forward(self, data):
+        x = data.x
+        edge_index = data.edge_index.long()
+        batch = data.batch
+
+        h = F.leaky_relu_(self.conv_0(x, edge_index))
+        h = F.leaky_relu_(self.conv_1(h, edge_index))
+        out = global_max_pool(h, batch)
+
+        return out
