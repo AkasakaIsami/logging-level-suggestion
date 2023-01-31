@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, Linear
+from torch_geometric.nn import GCNConv, Linear, BatchNorm, GATConv
 
 from util import idx2index
 
@@ -79,25 +79,52 @@ class MyOutGCN(nn.Module):
         super().__init__()
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        in_channels = 128
-        hidden_channels = 64
-        out_channels = 5
-
-        self.conv_0 = GCNConv(in_channels, hidden_channels)
-        self.conv_1 = GCNConv(hidden_channels, hidden_channels)
-        self.mlp = Linear(hidden_channels, out_channels, weight_initializer='kaiming_uniform')
+        self.conv_0 = GCNConv(128, 64)
+        self.bn_0 = BatchNorm(64)
+        self.conv_1 = GCNConv(64, 64)
+        self.bn_1 = BatchNorm(64)
+        self.mlp = Linear(64, 5, weight_initializer='kaiming_uniform')
 
     def forward(self, data):
         x = data.x
         edge_index = data.edge_index
-        h=x
-        try:
-            h = F.leaky_relu_(self.conv_0(x, edge_index))
-            h = F.leaky_relu_(self.conv_1(h, edge_index))
-        except:
-            print('hi')
+
+        h = F.leaky_relu_(self.conv_0(x, edge_index))
+        h = self.bn_0(h)
+        h = F.leaky_relu_(self.conv_1(h, edge_index))
+        h = self.bn_1(h)
 
         idx = data.idx
-        h = torch.index_select(h, dim=0, index=idx2index(idx))
+        h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
+        out = torch.sigmoid(self.mlp(h))
+        return h, out
+
+
+class MyOutGAT(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        self.conv_0 = GATConv(in_channels=128, out_channels=128, heads=2)
+        self.bn_0 = BatchNorm(256)
+        self.conv_1 = GATConv(in_channels=256, out_channels=128, heads=1)
+        self.bn_1 = BatchNorm(128)
+        self.conv_2 = GATConv(in_channels=128, out_channels=128, heads=1)
+        self.bn_2 = BatchNorm(128)
+        self.mlp = Linear(128, 5, weight_initializer='kaiming_uniform')
+
+    def forward(self, data):
+        x = data.x
+        edge_index = data.edge_index
+
+        h = F.leaky_relu_(self.conv_0(x, edge_index))
+        h = self.bn_0(h)
+        h = F.leaky_relu_(self.conv_1(h, edge_index))
+        h = self.bn_1(h)
+        h = F.leaky_relu_(self.conv_2(h, edge_index))
+        h = self.bn_2(h)
+
+        idx = data.idx
+        h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
         out = torch.sigmoid(self.mlp(h))
         return h, out

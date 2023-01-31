@@ -9,7 +9,7 @@ from torch.utils.data import random_split, DataLoader
 from torch_geometric.data import Data, Batch
 
 from dataset import MyDataset
-from model import MyBiLSTM, MyOutGCN
+from model import MyBiLSTM, MyOutGCN, MyOutGAT
 from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                              shuffle=True)
 
     # 第六步 训练准备
-    model = MyOutGCN().to(device)
+    model = MyOutGAT().to(device)
     parameters = model.parameters()
     optimizer = torch.optim.Adam(parameters, lr=LR)
     loss_function = torch.nn.BCELoss().to(device)
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         y_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
 
-        xs = torch.randn(0, 64)
+        xs = torch.randn(0, 128)
         ys = []
 
         model.eval()
@@ -206,7 +206,7 @@ if __name__ == '__main__':
     y_hat_total = torch.randn(0, 5)
     y_total = torch.randn(0, 5)
 
-    xs = torch.randn(0, 64)
+    xs = torch.randn(0, 128)
     ys = []
 
     record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')

@@ -1,7 +1,6 @@
 import configparser
 import os
 import time
-from abc import ABC
 from functools import cmp_to_key
 
 import pandas as pd
@@ -15,7 +14,7 @@ from typing import Tuple
 from util import cut_word
 
 
-class MyDataset(InMemoryDataset, ABC):
+class MyDataset(InMemoryDataset):
 
     def __init__(self, root, transform=None, pre_transform=None, project=None, methods=None):
         self.word2vec = None
@@ -253,8 +252,15 @@ class MyDataset(InMemoryDataset, ABC):
         edge_1_dfg = []
 
         for edge in edges:
-            source = index_map[int(edge.get_source()[1:])]
-            destination = index_map[int(edge.get_destination()[1:])]
+            source = int(edge.get_source()[1:])
+            destination = int(edge.get_destination()[1:])
+
+            if source >= len(index_map) or destination >= len(index_map):
+                continue
+
+            source = index_map[source]
+            destination = index_map[destination]
+
             color = edge.get_attributes()['color']
 
             if color == 'red':
