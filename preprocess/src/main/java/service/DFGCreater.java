@@ -11,7 +11,6 @@ import model.EdgeTypes;
 import model.GraphEdge;
 import model.GraphNode;
 import org.apache.commons.lang3.StringUtils;
-import utils.LogUtil;
 
 import java.util.*;
 
@@ -69,11 +68,6 @@ public class DFGCreater {
             ExpressionStmt expressionStmt = ((ExpressionStmt) node).asExpressionStmt();
             Expression expression = expressionStmt.getExpression();
             String label = expression.toString();
-
-            if (LogUtil.isLogStatement(label, 1)) {
-                return parentDefVarMap;
-            }
-
             int lineNum = expression.getBegin().isPresent() ? expression.getBegin().get().line : -1;
             GraphNode cfgNode = allCFGNodesMap.get(label + ":" + lineNum);
             return dealSingleRoadStmtDFG(parentDefVarMap, expression, cfgNode);
