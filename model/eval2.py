@@ -9,7 +9,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
-from eval0 import MyLSTM
+from model import MyLSTM
 from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc, idx2index
 
 """
