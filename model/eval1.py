@@ -58,10 +58,10 @@ class MyBiLSTM(nn.Module):
 
 if __name__ == '__main__':
     # 第一步：训练配置
-    project = 'kafkademo'
+    project = 'kafka'
     BS = 15
     LR = 5e-3
-    EPOCHS = 5
+    EPOCHS = 70
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集

@@ -18,10 +18,10 @@ from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, ten
 if __name__ == '__main__':
 
     # 第一步：训练配置
-    project = 'kafkademo'
-    BS = 10
-    LR = 1e-4
-    EPOCHS = 10
+    project = 'kafka'
+    BS = 15
+    LR = 5e-3
+    EPOCHS = 100
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集

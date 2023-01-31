@@ -48,11 +48,11 @@ class MyLSTM(nn.Module):
 
 if __name__ == '__main__':
     # 第一步：训练配置
-    project = 'kafkademo'
+    project = 'kafka'
     # 不支持批处理！！
-    BS = 20
+    BS = 24
     LR = 5e-3
-    EPOCHS = 10
+    EPOCHS = 70
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集
