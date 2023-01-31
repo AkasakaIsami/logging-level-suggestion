@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, Linear, BatchNorm, GATConv, global_max_pool, RGCNConv
+from torch_geometric.nn import GCNConv, Linear, BatchNorm, GATConv, global_max_pool, RGCNConv, RGATConv
 
 from util import idx2index
 
@@ -109,8 +109,7 @@ class MyOutGAT(nn.Module):
         self.bn_0 = BatchNorm(256)
         self.conv_1 = GATConv(in_channels=256, out_channels=128, heads=1)
         self.bn_1 = BatchNorm(128)
-        self.conv_2 = GATConv(in_channels=128, out_channels=128, heads=1)
-        self.bn_2 = BatchNorm(128)
+
         self.mlp = Linear(128, 5, weight_initializer='kaiming_uniform')
 
     def forward(self, data):
@@ -121,8 +120,6 @@ class MyOutGAT(nn.Module):
         h = self.bn_0(h)
         h = F.leaky_relu_(self.conv_1(h, edge_index))
         h = self.bn_1(h)
-        h = F.leaky_relu_(self.conv_2(h, edge_index))
-        h = self.bn_2(h)
 
         idx = data.idx
         h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
@@ -152,7 +149,38 @@ class MyOutRGCN(nn.Module):
         h = F.leaky_relu_(self.conv_1(h, edge_index, edge_type))
 
         idx = data.idx
-        h = torch.index_select(h, dim=0, index=idx2index(idx))
+        h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
+        out = torch.sigmoid(self.mlp(h))
+        return h, out
+
+
+class MyOutRGAT(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        in_channels = 128
+        hidden_channels = 128
+        out_channels = 5
+
+        self.conv_0 = RGATConv(128, 128, num_relations=2, heads=2)
+        self.bn_0 = BatchNorm(2 * 128)
+        self.conv_1 = RGATConv(2 * 128, 128, num_relations=2, heads=1)
+        self.bn_1 = BatchNorm(128)
+        self.mlp = Linear(hidden_channels, out_channels, weight_initializer='kaiming_uniform')
+
+    def forward(self, data):
+        x = data.x
+        edge_index = data.edge_index
+        edge_type = data.edge_type
+
+        h = F.leaky_relu_(self.conv_0(x, edge_index, edge_type))
+        h = self.bn_0(h)
+        h = F.leaky_relu_(self.conv_1(h, edge_index, edge_type))
+        h = self.bn_1(h)
+
+        idx = data.idx
+        h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
         out = torch.sigmoid(self.mlp(h))
         return h, out
 

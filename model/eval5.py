@@ -9,8 +9,8 @@ from torch.utils.data import random_split, DataLoader
 from torch_geometric.data import Data, Batch
 
 from dataset import MyDataset
-from model import MyBiLSTM, MyOutGCN, MyOutRGCN
-from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
+from model import MyOutRGAT
+from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
 完成实验5：AST pooling + GNN (多边CFG+DFG的RGCN)
@@ -19,10 +19,10 @@ from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, ten
 if __name__ == '__main__':
 
     # 第一步：训练配置
-    project = 'kafkademo'
-    BS = 1
-    LR = 1e-4
-    EPOCHS = 10
+    project = 'kafka'
+    BS = 15
+    LR = 5e-3
+    EPOCHS = 100
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集
@@ -107,7 +107,7 @@ if __name__ == '__main__':
                              shuffle=True)
 
     # 第六步 训练准备
-    model = MyOutRGCN().to(device)
+    model = MyOutRGAT().to(device)
     parameters = model.parameters()
     optimizer = torch.optim.Adam(parameters, lr=LR)
     loss_function = torch.nn.BCELoss().to(device)
@@ -139,7 +139,7 @@ if __name__ == '__main__':
             optimizer.step()
 
             total_train_step = total_train_step + 1
-            if total_train_step % 10 == 0:
+            if total_train_step % 50 == 0:
                 print(f"训练次数: {total_train_step}, Loss: {loss.item()}")
 
         # 验证
