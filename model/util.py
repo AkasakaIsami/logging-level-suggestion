@@ -164,16 +164,16 @@ def OR2OEN(tensor: torch.Tensor) -> torch.Tensor:
     result = torch.randn(0, 5)
 
     for i in range(tensor.shape[0]):
-        if torch.equal(tensor[i], torch.tensor([1, 1, 1, 1, 1]).float()):
+        if torch.equal(tensor[i].cpu(), torch.tensor([1, 1, 1, 1, 1]).float()):
             result = torch.cat([result, torch.tensor([[0, 0, 0, 0, 1]]).float()], dim=0)
 
-        elif torch.equal(tensor[i], torch.tensor([1, 1, 1, 1, 0]).float()):
+        elif torch.equal(tensor[i].cpu(), torch.tensor([1, 1, 1, 1, 0]).float()):
             result = torch.cat([result, torch.tensor([[0, 0, 0, 1, 0]]).float()], dim=0)
 
-        elif torch.equal(tensor[i], torch.tensor([1, 1, 1, 0, 0]).float()):
+        elif torch.equal(tensor[i].cpu(), torch.tensor([1, 1, 1, 0, 0]).float()):
             result = torch.cat([result, torch.tensor([[0, 0, 1, 0, 0]]).float()], dim=0)
 
-        elif torch.equal(tensor[i], torch.tensor([1, 1, 0, 0, 0]).float()):
+        elif torch.equal(tensor[i].cpu(), torch.tensor([1, 1, 0, 0, 0]).float()):
             result = torch.cat([result, torch.tensor([[0, 1, 0, 0, 0]]).float()], dim=0)
 
         else:

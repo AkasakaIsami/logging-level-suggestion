@@ -175,8 +175,8 @@ if __name__ == '__main__':
         # ————————————————————————————————————————————————————————————————————————————————————————————————
         # 验证集
         total_val_loss = 0.0
-        y_hat_total = torch.randn(0, 5).to(device)
-        y_total = torch.randn(0, 5).to(device)
+        y_hat_total = torch.randn(0, 5)
+        y_total = torch.randn(0, 5)
 
         xs = torch.randn(0, 64)
         ys = []
@@ -191,8 +191,8 @@ if __name__ == '__main__':
                 # 用来计算整体指标
                 total_val_loss += loss.item()
                 y_hat = transact(y_hat).to(device)
-                y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
-                y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
+                y_hat_total = torch.cat([y_hat_total.cpu(), OR2OEN(y_hat)], dim=0)
+                y_total = torch.cat([y_total.cpu(), OR2OEN(y)], dim=0)
 
                 # 这里帮助可视化
                 size = len(y)
@@ -240,8 +240,8 @@ if __name__ == '__main__':
     wrong = {}
 
     total_val_loss = 0.0
-    y_hat_total = torch.randn(0, 5).to(device)
-    y_total = torch.randn(0, 5).to(device)
+    y_hat_total = torch.randn(0, 5)
+    y_total = torch.randn(0, 5)
 
     xs = torch.randn(0, 64)
     ys = []
@@ -258,8 +258,8 @@ if __name__ == '__main__':
             # 用来计算整体指标
             total_val_loss += loss.item()
             y_hat = transact(y_hat).to(device)
-            y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
-            y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
+            y_hat_total = torch.cat([y_hat_total.cpu(), OR2OEN(y_hat)], dim=0)
+            y_total = torch.cat([y_total.cpu(), OR2OEN(y)], dim=0)
 
             # 这里帮助可视化
             size = len(y)

@@ -10,7 +10,7 @@ from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
 from eval0 import MyLSTM
-from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc
+from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc, idx2index
 
 """
 完成实验2：AST pooling + RNN (只到当前语句)
@@ -131,7 +131,7 @@ if __name__ == '__main__':
 
         # 训练
         model.train()
-        for data in enumerate(train_loader):
+        for i, (x, y, ids) in enumerate(train_loader):
             model.zero_grad()
 
             _, y_hat = model(x.to(device))
@@ -213,8 +213,8 @@ if __name__ == '__main__':
     wrong = {}
 
     total_val_loss = 0.0
-    y_hat_total = torch.randn(0, 5).to(device)
-    y_total = torch.randn(0, 5).to(device)
+    y_hat_total = torch.randn(0, 5)
+    y_total = torch.randn(0, 5)
 
     xs = torch.randn(0, 64)
     ys = []
