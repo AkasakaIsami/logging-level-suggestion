@@ -218,10 +218,14 @@ class MyDataset(InMemoryDataset, ABC):
         lines = []
         log_idx = []
 
+        index_map = {}
         for i in range(node_num):
             node = nodes[i]
             line = node.get_attributes()['line']
             lines.append(int(line))
+
+            node_index = int(node.get_name()[1:])
+            index_map[node_index] = i
 
             # 判断是不是日志语句
             isLogStmt = '"true"' in node.get_attributes()['isLogStmt']
@@ -249,8 +253,8 @@ class MyDataset(InMemoryDataset, ABC):
         edge_1_dfg = []
 
         for edge in edges:
-            source = int(edge.get_source()[1:])
-            destination = int(edge.get_destination()[1:])
+            source = index_map[int(edge.get_source()[1:])]
+            destination = index_map[int(edge.get_destination()[1:])]
             color = edge.get_attributes()['color']
 
             if color == 'red':

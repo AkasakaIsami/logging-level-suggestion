@@ -6,55 +6,15 @@ import pandas as pd
 import torch
 
 from sklearn.metrics import accuracy_score, roc_auc_score
-from torch import nn
 from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
+from model import MyBiLSTM
 from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
 完成实验1：AST根节点 + bi RNN (看整个函数)
 """
-
-
-class MyBiLSTM(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-        self.num_layers = 2
-        self.num_directions = 2  # 双向LSTM
-        self.hidden_size = 64
-
-        self.lstm = nn.LSTM(input_size=128, hidden_size=64, num_layers=self.num_layers, batch_first=True,
-                            bidirectional=True)
-        self.dropout = nn.Dropout(p=0.2)
-        self.linear = nn.Linear(128, 5)
-        self.act = nn.Sigmoid()
-
-    def forward(self, x, idxs):
-        batch_size, seq_len = x.shape[0], x.shape[1]
-
-        h_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).requires_grad_().to(
-            self.device)
-        c_0 = torch.randn(self.num_directions * self.num_layers, batch_size, self.hidden_size).requires_grad_().to(
-            self.device)
-
-        h, _ = self.lstm(x, (h_0, c_0))
-
-        temp = torch.randn(0, 128).to(self.device)
-        for i in range(batch_size):
-            select = torch.index_select(h[i], dim=0, index=torch.tensor(idxs[i]).to(self.device))
-            temp = torch.cat([temp, select], dim=0)
-
-        h = temp
-        h = self.dropout(h)
-        record = h
-        h = self.linear(h)
-        out = self.act(h)
-
-        return record, out
-
 
 if __name__ == '__main__':
     # 第一步：训练配置

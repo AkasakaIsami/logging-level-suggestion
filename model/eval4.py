@@ -4,29 +4,25 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-
 from sklearn.metrics import accuracy_score, roc_auc_score
 from torch.utils.data import random_split, DataLoader
+from torch_geometric.data import Data, Batch
 
 from dataset import MyDataset
-from model import MyLSTM
-from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc, idx2index
+from model import MyBiLSTM, MyOutGCN
+from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
-完成实验2：AST pooling + RNN (只到当前语句)
+完成实验4：AST pooling + GNN (单边CFG的GCN)
 """
 
 if __name__ == '__main__':
-    """
-    完成实验1：AST pooling + RNN (只到当前语句)
-    """
 
     # 第一步：训练配置
-    project = 'kafka'
-    # 不支持批处理！！
-    BS = 15
-    LR = 5e-3
-    EPOCHS = 100
+    project = 'kafkademo'
+    BS = 1
+    LR = 1e-4
+    EPOCHS = 10
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集
@@ -54,46 +50,35 @@ if __name__ == '__main__':
 
     # 第四步 定义数据获取batch格式
     def my_collate_fn(batch):
-        xs = []
-        ys = []
-        ids = []
-        max_len = 0
+        new_datalist = []
 
         for data in batch:
-            method = data.id
+            method = data.id.split('@')[0]
             info = methods_info.loc[methods_info['id'] == method]
 
-            asts = info['ASTs'].tolist()[0]
+            x = torch.randn(0, 128)
+            for ast in info['ASTs'].tolist()[0]:
+                ast.x = ast.x.mean(axis=0)
+                ast.x = ast.x.reshape(1, 128)
+                ast.edge_index = torch.zeros(2, 0).long()
+                x = torch.cat([x, ast.x], dim=0)
 
-            seq = torch.randn(0, 128)
-            index = idx2index(data.idx).item()
-            for i in range(index + 1):
-                ast = asts[i].x
-                ast = ast.mean(axis=0)
-                ast = ast.reshape(1, 128)
-                seq = torch.cat([seq, ast], dim=0)
+            cfg_edge_index = info['edges'].tolist()[0][0].long()
 
             y = data.y
             y = y.reshape(1, y.shape[0])
 
-            xs.append(seq)
-            ys.append(y)
-            ids.append(data.id + '@' + str(data.line.item()))
-            max_len = seq.shape[0] if seq.shape[0] > max_len else max_len
+            new_data = Data(
+                id=data.id,
+                idx=data.idx,
+                x=x,
+                edge_index=cfg_edge_index,
+                y=y
+            )
 
-        # xs需要在前面补0
-        # 先找到最长的长度
-        for i in range(len(xs)):
-            seq = xs[i]
-            length = seq.shape[0]
-            for j in range(max_len - length):
-                xs[i] = torch.cat([torch.zeros(1, 128), xs[i]], dim=0)
+            new_datalist.append(new_data)
 
-        # 补完以后把所有的拼起来
-        xs = torch.stack([x for x in xs], dim=0)
-        ys = torch.cat([y for y in ys], dim=0).float()
-
-        return xs, ys, ids
+        return Batch.from_data_list(new_datalist)
 
 
     # 第五步 获取数据加载器
@@ -113,10 +98,10 @@ if __name__ == '__main__':
                              shuffle=True)
 
     # 第六步 训练准备
-    model = MyLSTM().to(device)
+    model = MyOutGCN().to(device)
     parameters = model.parameters()
     optimizer = torch.optim.Adam(parameters, lr=LR)
-    loss_function = torch.nn.MSELoss().to(device)
+    loss_function = torch.nn.BCELoss().to(device)
 
     # 定义用于评估预测结果的东西
     best_acc = 0.0
@@ -131,11 +116,13 @@ if __name__ == '__main__':
 
         # 训练
         model.train()
-        for i, (x, y, ids) in enumerate(train_loader):
+        for i, data in enumerate(train_loader):
             model.zero_grad()
 
-            _, y_hat = model(x.to(device))
-            y = y.to(device)
+            data = data.to(device)
+            y = data.y.float()
+
+            h, y_hat = model(data)
             loss = loss_function(y_hat, y)
 
             optimizer.zero_grad()
@@ -143,7 +130,7 @@ if __name__ == '__main__':
             optimizer.step()
 
             total_train_step = total_train_step + 1
-            if total_train_step % 100 == 0:
+            if total_train_step % 10 == 0:
                 print(f"训练次数: {total_train_step}, Loss: {loss.item()}")
 
         # 验证
@@ -156,16 +143,19 @@ if __name__ == '__main__':
 
         model.eval()
         with torch.no_grad():
-            for i, (x, y, ids) in enumerate(val_loader):
-                h, y_hat = model(x.to(device))
-                y = y.to(device)
+            for i, data in enumerate(val_loader):
+
+                data = data.to(device)
+                y = data.y.float()
+
+                h, y_hat = model(data)
                 loss = loss_function(y_hat, y)
 
                 # 用来计算整体指标
                 total_val_loss += loss.item()
                 y_hat = transact(y_hat).to(device)
-                y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
-                y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
+                y_hat_total = torch.cat([y_hat_total.cpu(), OR2OEN(y_hat)], dim=0)
+                y_total = torch.cat([y_total.cpu(), OR2OEN(y)], dim=0)
 
                 # 根据实际lable
                 size = len(y)
@@ -195,7 +185,7 @@ if __name__ == '__main__':
         print(f"验证集 aod: {float_to_percent(aod)}")
 
         if acc > best_acc:
-            print(f"***当前模型的准确率表现最好，被记为表现最好的模型***\n")
+            print(f"***当前模型的平衡准确率表现最好，被记为表现最好的模型***\n")
             best_model = model
             best_acc = acc
 
@@ -221,18 +211,22 @@ if __name__ == '__main__':
 
     record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')
 
-    best_model.eval()
+    model.eval()
     with torch.no_grad():
-        for i, (x, y, ids) in enumerate(test_loader):
-            h, y_hat = best_model(x.to(device))
-            y = y.to(device)
+        for i, data in enumerate(test_loader):
+
+            data = data.to(device)
+            y = data.y.float()
+            ids = data.id
+
+            h, y_hat = model(data)
             loss = loss_function(y_hat, y)
 
             # 用来计算整体指标
             total_val_loss += loss.item()
             y_hat = transact(y_hat).to(device)
-            y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
-            y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
+            y_hat_total = torch.cat([y_hat_total.cpu(), OR2OEN(y_hat)], dim=0)
+            y_total = torch.cat([y_total.cpu(), OR2OEN(y)], dim=0)
 
             # 这里帮助可视化
             size = len(y)

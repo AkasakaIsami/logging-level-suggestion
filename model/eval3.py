@@ -8,7 +8,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
-from eval1 import MyBiLSTM
+from model import MyBiLSTM
 from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
@@ -43,6 +43,8 @@ if __name__ == '__main__':
     train_dataset, val_dataset, test_dataset = random_split(dataset=dataset,
                                                             lengths=[train_len, val_len, test_len],
                                                             generator=torch.Generator().manual_seed(0))
+    print(
+        f"数据集切分完成，总共{len(dataset)}条数据，其中训练集{len(train_dataset)}条，验证集{len(val_dataset)}条，测试集{len(test_dataset)}条，")
 
 
     # 第四步 定义数据获取batch格式
