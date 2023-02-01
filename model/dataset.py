@@ -117,7 +117,9 @@ class MyDataset(InMemoryDataset):
                 statement_graph = statement_graphs[i]
 
                 # Step1: 先构建存在method_info.pkl里的函数信息数据
-                ast_x, ast_edge_index = self.process_statement_dot(graph=statement_graph, weight=None)
+                is_log = log_idx[i] == 1
+                ast_x, ast_edge_index, msg_embd = self.process_statement_dot(graph=statement_graph, weight=None,
+                                                                             is_log=is_log)
                 ast_data = Data(
                     x=ast_x,
                     edge_index=ast_edge_index,
@@ -125,7 +127,7 @@ class MyDataset(InMemoryDataset):
                 asts.append(ast_data)
 
                 # Step2: 再构建statement数据集
-                if log_idx[i] == 1:
+                if is_log:
                     # 当前处理的ast是日志语句
                     index = torch.zeros(num_statements, 1)
                     index[i] = 1
@@ -133,7 +135,8 @@ class MyDataset(InMemoryDataset):
                         id=id,
                         line=lines[i],
                         idx=index,
-                        y=torch.tensor(y[i])
+                        y=torch.tensor(y[i]),
+                        msg=msg_embd
                     )
 
                     datalist.append(statement_data)
@@ -285,11 +288,12 @@ class MyDataset(InMemoryDataset):
 
         return y, cfg_edge_index, dfg_edge_index, lines, log_idx, level_count
 
-    def process_statement_dot(self, graph, weight):
+    def process_statement_dot(self, graph, weight, is_log):
         """
         这个函数返回ST-AST的特征矩阵和邻接矩阵
         特征矩阵需要根据语料库构建……
 
+        :param is_log:
         :param weight:
         :param graph: ST-AST
         :return: 特征矩阵和邻接矩阵
@@ -327,6 +331,7 @@ class MyDataset(InMemoryDataset):
             return result
 
         x = []
+        msgs = []
         nodes = graph.get_node_list()
         if len(graph.get_node_list()) > 0 and graph.get_node_list()[-1].get_name() == '"\\n"':
             nodes = graph.get_node_list()[:-1]
@@ -338,8 +343,14 @@ class MyDataset(InMemoryDataset):
             # 多token可以考虑不同的合并方式
             node_embedding = tokens_to_embedding(tokens, weight)
             x.append(node_embedding)
+            if is_log and node_str.startswith('\"value='):
+                msgs.append(node_embedding)
 
         x = torch.cat(x)
+        msg_embd = torch.zeros(1, 128)
+        for msg in msgs:
+            msg_embd += msg
+        msg_embd /= len(msgs)
 
         edges = graph.get_edge_list()
         edge_0 = []
@@ -358,7 +369,7 @@ class MyDataset(InMemoryDataset):
 
         edge_index = torch.cat([edge_0, edge_1], dim=0)
 
-        return x, edge_index
+        return x, edge_index, msg_embd
 
     def get_labels(self, ):
         return self.data.y

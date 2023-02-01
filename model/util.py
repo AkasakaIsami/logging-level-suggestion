@@ -64,7 +64,13 @@ def cut_hump(str):
     numRegex = "[0-9]+\Z"
     capitalRegex = "[A-Z][a-z]+\Z"
 
-    if str.find('_') != -1:
+    if str.find(' ') != -1:
+        tokens = str.split(' ')
+        for token in tokens:
+            result.append(cut_hump(token))
+            result.append(" ")
+        result.pop()
+    elif str.find('_') != -1:
         tokens = str.split('_')
         for token in tokens:
             result.append(cut_hump(token))

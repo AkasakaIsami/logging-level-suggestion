@@ -236,3 +236,38 @@ class MyNestingOutGCN(nn.Module):
         h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
         out = torch.sigmoid(self.mlp(h))
         return h, out
+
+
+class MyOutGATwithMSG(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        self.conv_0 = GATConv(in_channels=128, out_channels=64, heads=2)
+        self.bn_0 = BatchNorm(128)
+        self.conv_1 = GATConv(in_channels=128, out_channels=64, heads=1)
+        self.bn_1 = BatchNorm(64)
+
+        self.mlp = nn.Sequential(Linear(192, 64, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(64, 32, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(32, 5, weight_initializer='kaiming_uniform')
+                                 )
+
+    def forward(self, data):
+        x = data.x
+        edge_index = data.edge_index
+
+        h = F.leaky_relu_(self.conv_0(x, edge_index))
+        h = self.bn_0(h)
+        h = F.leaky_relu_(self.conv_1(h, edge_index))
+        h = self.bn_1(h)
+
+        idx = data.idx
+        msg = data.msg
+        h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
+        h = torch.cat([h, msg], dim=1)
+        h = self.mlp(h)
+        out = torch.sigmoid(h)
+        return h, out
