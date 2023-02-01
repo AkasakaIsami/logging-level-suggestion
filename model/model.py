@@ -105,12 +105,17 @@ class MyOutGAT(nn.Module):
         super().__init__()
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.conv_0 = GATConv(in_channels=128, out_channels=128, heads=2)
-        self.bn_0 = BatchNorm(256)
-        self.conv_1 = GATConv(in_channels=256, out_channels=128, heads=1)
-        self.bn_1 = BatchNorm(128)
+        self.conv_0 = GATConv(in_channels=128, out_channels=64, heads=2)
+        self.bn_0 = BatchNorm(128)
+        self.conv_1 = GATConv(in_channels=128, out_channels=64, heads=1)
+        self.bn_1 = BatchNorm(64)
 
-        self.mlp = Linear(128, 5, weight_initializer='kaiming_uniform')
+        self.mlp = nn.Sequential(Linear(64, 32, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(32, 16, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(16, 5, weight_initializer='kaiming_uniform'),
+                                 )
 
     def forward(self, data):
         x = data.x
@@ -123,7 +128,8 @@ class MyOutGAT(nn.Module):
 
         idx = data.idx
         h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
-        out = torch.sigmoid(self.mlp(h))
+        h = self.mlp(h)
+        out = torch.sigmoid(h)
         return h, out
 
 
@@ -191,11 +197,11 @@ class MyInGCN(nn.Module):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         in_channels = 128
-        hidden_channels = 128
-        out_channels = 128
+        hidden_channels = 64
+        out_channels = 32
 
         self.conv_0 = GCNConv(in_channels, hidden_channels)
-        self.conv_1 = GCNConv(hidden_channels, hidden_channels)
+        self.conv_1 = GCNConv(hidden_channels, out_channels)
         self.mlp = Linear(hidden_channels, out_channels, weight_initializer='kaiming_uniform')
 
     def forward(self, data):
@@ -215,11 +221,11 @@ class MyNestingOutGCN(nn.Module):
         super().__init__()
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.encoder = MyInGCN()
-        self.conv_0 = GCNConv(128, 128)
-        self.bn_0 = BatchNorm(128)
-        self.conv_1 = GCNConv(128, 128)
-        self.bn_1 = BatchNorm(128)
-        self.mlp = Linear(128, 5, weight_initializer='kaiming_uniform')
+        self.conv_0 = GCNConv(32, 32)
+        self.bn_0 = BatchNorm(32)
+        self.conv_1 = GCNConv(32, 16)
+        self.bn_1 = BatchNorm(16)
+        self.mlp = Linear(16, 5, weight_initializer='kaiming_uniform')
 
     def forward(self, astss, data):
         statements_vec = self.encoder(astss)
