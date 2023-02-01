@@ -109,6 +109,7 @@ class MyDataset(InMemoryDataset):
             # 简单做个验证
             if len(statement_graphs) != len(y):
                 print(f"!!!!!!!!!!!!!!!!!!{clz}的{method}解析的有问题！！！")
+                continue
 
             asts = []
             num_statements = len(statement_graphs)
@@ -350,7 +351,8 @@ class MyDataset(InMemoryDataset):
         msg_embd = torch.zeros(1, 128)
         for msg in msgs:
             msg_embd += msg
-        msg_embd /= len(msgs)
+        if len(msgs) != 0:
+            msg_embd /= len(msgs)
 
         edges = graph.get_edge_list()
         edge_0 = []
