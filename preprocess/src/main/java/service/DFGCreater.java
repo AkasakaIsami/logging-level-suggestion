@@ -12,6 +12,7 @@ import model.GraphEdge;
 import model.GraphNode;
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.IOException;
 import java.util.*;
 
 public class DFGCreater {
@@ -256,11 +257,13 @@ public class DFGCreater {
             int lineNum = synchronizedStmt.getBegin().isPresent() ? synchronizedStmt.getBegin().get().line : -1;
             GraphNode cfgNode = allCFGNodesMap.get(label + ":" + lineNum);
             parentDefVarMap = dealSingleRoadStmtDFG(parentDefVarMap, synchronizedStmt.getExpression(), cfgNode);
+            Set<DFVarNode> sonBlockDefVarSet = this.copy(parentDefVarMap);
             BlockStmt body = synchronizedStmt.getBody();
             NodeList<Statement> statements = body.getStatements();
             for (Statement statement : statements) {
-                parentDefVarMap = buildDFG(statement, parentDefVarMap);
+                sonBlockDefVarSet = buildDFG(statement, sonBlockDefVarSet);
             }
+            parentDefVarMap = this.merge(parentDefVarMap, sonBlockDefVarSet);
             return parentDefVarMap;
         } else if (node instanceof BlockStmt) {
             BlockStmt blockStmt = ((BlockStmt) node).asBlockStmt();
@@ -279,17 +282,40 @@ public class DFGCreater {
                 parentDefVarMap = dealSingleRoadStmtDFG(parentDefVarMap, e, cfgNode);
             }
 
+            Set<DFVarNode> sonBlockDefVarSet = this.copy(parentDefVarMap);
             BlockStmt tryBlock = tryStmt.getTryBlock();
             NodeList<Statement> statements = tryBlock.getStatements();
             for (Statement statement : statements) {
-                parentDefVarMap = buildDFG(statement, parentDefVarMap);
+                sonBlockDefVarSet = buildDFG(statement, sonBlockDefVarSet);
             }
+            parentDefVarMap = this.merge(parentDefVarMap, sonBlockDefVarSet);
+
+            NodeList<CatchClause> catchClauses = tryStmt.getCatchClauses();
+            if (!catchClauses.isEmpty()) {
+                for (CatchClause catchClause : catchClauses) {
+                    String catchLabel = "catch (" + catchClause.getParameter().getType().toString() + " " + catchClause.getParameter().getName().toString() + ")";
+                    int catchLineNum = catchClause.getBegin().isPresent() ? catchClause.getBegin().get().line : -1;
+                    GraphNode catchNode = allCFGNodesMap.get(catchLabel + ":" + catchLineNum);
+                    parentDefVarMap = dealSingleRoadStmtDFG(parentDefVarMap, catchClause, catchNode);
+                    sonBlockDefVarSet = this.copy(parentDefVarMap);
+
+                    BlockStmt catchBody = catchClause.getBody();
+                    NodeList<Statement> catchStatements = catchBody.getStatements();
+                    for (Statement statement : catchStatements) {
+                        sonBlockDefVarSet = buildDFG(statement, sonBlockDefVarSet);
+                    }
+                    parentDefVarMap = this.merge(parentDefVarMap, sonBlockDefVarSet);
+                }
+            }
+
             Optional<BlockStmt> finallyBlock = tryStmt.getFinallyBlock();
             if (finallyBlock.isPresent()) {
+                sonBlockDefVarSet = this.copy(parentDefVarMap);
                 NodeList<Statement> finaBodyStas = finallyBlock.get().getStatements();
                 for (Statement statement : finaBodyStas) {
-                    parentDefVarMap = buildDFG(statement, parentDefVarMap);
+                    sonBlockDefVarSet = buildDFG(statement, sonBlockDefVarSet);
                 }
+                parentDefVarMap = this.merge(parentDefVarMap, sonBlockDefVarSet);
             }
             return parentDefVarMap;
         } else if (node instanceof LocalClassDeclarationStmt) {
@@ -623,7 +649,7 @@ public class DFGCreater {
         for (String varName : s0) {
             List<DFVarNode> tempNodes = getDefination(parentDefVarMap, varName);
             for (DFVarNode tempNode : tempNodes) {
-                connectNodes(node, tempNode.getNode());
+                connectNodes(tempNode.getNode(), node);
             }
         }
 
@@ -634,6 +660,18 @@ public class DFGCreater {
         return parentDefVarMap;
     }
 
+    private Set<DFVarNode> dealSingleRoadStmtDFG(Set<DFVarNode> parentDefVarMap, CatchClause catchClause, GraphNode node) {
+        // s0 用到的变量
+        // s1 被赋值的变量 可能是第一次定义(int a = 0) 也可能是定义过但被重新赋值了(a = 0)
+        Set<String> s1 = new HashSet<>();
+        s1.add(catchClause.getParameter().getName().getIdentifier());
+
+        // 更新定义
+        for (String varName : s1) {
+            intersection(parentDefVarMap, varName, node);
+        }
+        return parentDefVarMap;
+    }
 
     /**
      * 单线路的节点 数据流就是取交集 保留最新节点信息
