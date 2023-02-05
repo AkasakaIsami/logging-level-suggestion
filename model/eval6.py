@@ -9,8 +9,8 @@ from torch.utils.data import random_split, DataLoader
 from torch_geometric.data import Data, Batch
 
 from dataset import MyDataset
-from model import MyBiLSTM, MyOutGCN, MyOutGAT, MyNestingOutGCN
-from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
+from model import MyNestingOutGCN
+from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
 完成实验6：AST GNN + GNN (单边CFG的GCN)
@@ -19,10 +19,10 @@ from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, ten
 if __name__ == '__main__':
 
     # 第一步：训练配置
-    project = 'kafkademo'
+    project = 'kafka'
     BS = 10
-    LR = 1e-4
-    EPOCHS = 10
+    LR = 5e-3
+    EPOCHS = 100
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集
@@ -71,6 +71,7 @@ if __name__ == '__main__':
                 id=data.id,
                 idx=data.idx,
                 edge_index=cfg_edge_index,
+                num_nodes=len(info['ASTs'].tolist()[0]),
                 y=y
             )
 
@@ -128,7 +129,7 @@ if __name__ == '__main__':
             optimizer.step()
 
             total_train_step = total_train_step + 1
-            if total_train_step % 10 == 0:
+            if total_train_step % 50 == 0:
                 print(f"训练次数: {total_train_step}, Loss: {loss.item()}")
 
         # 验证
@@ -136,7 +137,7 @@ if __name__ == '__main__':
         y_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
 
-        xs = torch.randn(0, 128)
+        xs = torch.randn(0, 16)
         ys = []
 
         model.eval()
@@ -204,7 +205,7 @@ if __name__ == '__main__':
     y_hat_total = torch.randn(0, 5)
     y_total = torch.randn(0, 5)
 
-    xs = torch.randn(0, 128)
+    xs = torch.randn(0, 16)
     ys = []
 
     record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')

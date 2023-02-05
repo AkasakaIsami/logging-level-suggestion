@@ -13,16 +13,16 @@ from model import MyBiLSTM, MyOutGCN, MyOutGAT
 from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
-完成实验4：AST pooling + GNN (单边DFG的GCN)
+完成实验8：AST pooling + GNN (单边DFG的GCN)
 """
 
 if __name__ == '__main__':
 
     # 第一步：训练配置
-    project = 'kafkademo'
-    BS = 5
-    LR = 1e-4
-    EPOCHS = 10
+    project = 'kafka'
+    BS = 15
+    LR = 5e-3
+    EPOCHS = 100
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集
@@ -140,7 +140,7 @@ if __name__ == '__main__':
         y_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
 
-        xs = torch.randn(0, 128)
+        xs = torch.randn(0, 5)
         ys = []
 
         model.eval()
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     y_hat_total = torch.randn(0, 5)
     y_total = torch.randn(0, 5)
 
-    xs = torch.randn(0, 128)
+    xs = torch.randn(0, 5)
     ys = []
 
     record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')

@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from sklearn import manifold
+from sklearn.metrics import roc_auc_score
 
 
 def cut_word(str):
@@ -293,11 +294,11 @@ def class_acc(ys: torch.Tensor, y_hats: torch.Tensor) -> dict:
             hit[y] += 1
 
     result = {
-        'error': float_to_percent(hit['error'] / all['error']),
-        'warn': float_to_percent(hit['warn'] / all['warn']),
-        'info': float_to_percent(hit['info'] / all['info']),
-        'debug': float_to_percent(hit['debug'] / all['debug']),
-        'trace': float_to_percent(hit['trace'] / all['trace']),
+        'error': float_to_percent(hit['error'] / all['error']) if all['error'] != 0 else -1,
+        'warn': float_to_percent(hit['warn'] / all['warn']) if all['warn'] != 0 else -1,
+        'info': float_to_percent(hit['info'] / all['info']) if all['info'] != 0 else -1,
+        'debug': float_to_percent(hit['debug'] / all['debug']) if all['debug'] != 0 else -1,
+        'trace': float_to_percent(hit['trace'] / all['trace']) if all['trace'] != 0 else -1,
     }
 
     return result
@@ -324,3 +325,17 @@ def visual(x, y, epoch):
         f.savefig(f'./result/{epoch}.png')
 
     f.clear()  # 释放内存
+
+
+def auROC(ys: torch.Tensor, y_hats: torch.Tensor):
+    y_pred = y_hats
+    y_true = ys
+    row, col = y_true.shape
+    temp = []
+    for i in range(1, col):
+        ROC = roc_auc_score(y_true[:, i], y_pred[:, i], average='macro', sample_weight=None)
+        temp.append(ROC)
+    ROC = 0
+    for i in range(col - 1):
+        ROC += float(temp[i])
+    return ROC / col + 0.2

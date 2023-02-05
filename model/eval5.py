@@ -9,7 +9,7 @@ from torch.utils.data import random_split, DataLoader
 from torch_geometric.data import Data, Batch
 
 from dataset import MyDataset
-from model import MyOutRGAT
+from model import MyOutRGAT, MyOutRGCN
 from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc
 
 """
@@ -139,7 +139,7 @@ if __name__ == '__main__':
             optimizer.step()
 
             total_train_step = total_train_step + 1
-            if total_train_step % 50 == 0:
+            if total_train_step % 10 == 0:
                 print(f"训练次数: {total_train_step}, Loss: {loss.item()}")
 
         # 验证
@@ -147,7 +147,7 @@ if __name__ == '__main__':
         y_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
 
-        xs = torch.randn(0, 128)
+        xs = torch.randn(0, 5)
         ys = []
 
         model.eval()
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     y_hat_total = torch.randn(0, 5)
     y_total = torch.randn(0, 5)
 
-    xs = torch.randn(0, 128)
+    xs = torch.randn(0, 5)
     ys = []
 
     record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')

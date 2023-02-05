@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import utils.FileUtil;
 
 /**
  * @author Akasaka Isami
@@ -24,9 +25,9 @@ public class Entry {
 
 
     public static void main(String[] args) throws FileNotFoundException {
-//        File test = new File(MConfig.rootDir + MConfig.primaryDir + MConfig.projectName);
-//        if (!test.exists())
-//            FileUtil.moveFiles(MConfig.rootDir + MConfig.srcDir, MConfig.rootDir + MConfig.primaryDir, MConfig.projectName);
+        File test = new File(MConfig.rootDir + MConfig.primaryDir + MConfig.projectName);
+        if (!test.exists())
+            FileUtil.moveFiles(MConfig.rootDir + MConfig.srcDir, MConfig.rootDir + MConfig.primaryDir, MConfig.projectName);
 
         String srcDirPath = MConfig.rootDir + MConfig.projectName + '/' + MConfig.primaryDir;
         File srcDir = new File(srcDirPath);

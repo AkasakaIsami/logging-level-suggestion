@@ -10,19 +10,19 @@ from torch_geometric.data import Data, Batch
 
 from dataset import MyDataset
 from model import MyBiLSTM, MyOutGCN, MyOutGAT, MyOutGATwithMSG
-from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc
+from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, tensor2label, class_acc, auROC
 
 """
-完成实验4：AST pooling + GNN (单边CFG的GCN) + msg
+完成实验7：AST pooling + GNN (单边CFG的GCN) + msg
 """
 
 if __name__ == '__main__':
 
     # 第一步：训练配置
-    project = 'kafkademo'
-    BS = 5
-    LR = 1e-4
-    EPOCHS = 10
+    project = 'kafka'
+    BS = 15
+    LR = 5e-3
+    EPOCHS = 100
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 第二步 读取数据集
@@ -138,6 +138,8 @@ if __name__ == '__main__':
         total_val_loss = 0.0
         y_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
+        y_float_hat_total = torch.randn(0, 5)
+
 
         xs = torch.randn(0, 5)
         ys = []
@@ -154,6 +156,8 @@ if __name__ == '__main__':
 
                 # 用来计算整体指标
                 total_val_loss += loss.item()
+                y_float_hat_total = torch.cat([y_float_hat_total.cpu(), y_hat], dim=0)
+
                 y_hat = transact(y_hat).to(device)
                 y_hat_total = torch.cat([y_hat_total.cpu(), OR2OEN(y_hat)], dim=0)
                 y_total = torch.cat([y_total.cpu(), OR2OEN(y)], dim=0)
@@ -179,7 +183,7 @@ if __name__ == '__main__':
         print(f"验证集整体Loss: {total_val_loss}")
 
         acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
-        auc = roc_auc_score(y_total.cpu(), y_hat_total.cpu())
+        auc = auROC(y_total.cpu(), y_float_hat_total.cpu())
         aod = AOD(y_total.cpu(), y_hat_total.cpu())
         print(f"验证集 accuracy_score: {float_to_percent(acc)}")
         print(f"验证集 auc: {float_to_percent(auc)}")

@@ -18,7 +18,7 @@ from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, ten
 
 if __name__ == '__main__':
     # 第一步：训练配置
-    project = 'kafka'
+    project = 'cassandra'
     BS = 15
     LR = 5e-3
     EPOCHS = 70
@@ -154,7 +154,7 @@ if __name__ == '__main__':
         y_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
 
-        xs = torch.randn(0, 128)
+        xs = torch.randn(0, 5)
         ys = []
 
         model.eval()
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     y_hat_total = torch.randn(0, 5)
     y_total = torch.randn(0, 5)
 
-    xs = torch.randn(0, 128)
+    xs = torch.randn(0, 5)
     ys = []
 
     record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')

@@ -10,7 +10,7 @@ from torch.utils.data import random_split, DataLoader
 
 from dataset import MyDataset
 from model import MyLSTM
-from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc, idx2index
+from util import float_to_percent, transact, OR2OEN, AOD, visual, tensor2label, class_acc, idx2index, auROC
 
 """
 完成实验2：AST pooling + RNN (只到当前语句)
@@ -149,6 +149,7 @@ if __name__ == '__main__':
         # 验证
         total_val_loss = 0.0
         y_hat_total = torch.randn(0, 5)
+        y_float_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
 
         xs = torch.randn(0, 64)
@@ -163,6 +164,7 @@ if __name__ == '__main__':
 
                 # 用来计算整体指标
                 total_val_loss += loss.item()
+                y_float_hat_total = torch.cat([y_float_hat_total.cpu(), y_hat], dim=0)
                 y_hat = transact(y_hat).to(device)
                 y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
                 y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
@@ -188,7 +190,7 @@ if __name__ == '__main__':
         print(f"验证集整体Loss: {total_val_loss}")
 
         acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
-        auc = roc_auc_score(y_total.cpu(), y_hat_total.cpu())
+        auc = auROC(y_total.cpu(), y_float_hat_total.cpu())
         aod = AOD(y_total.cpu(), y_hat_total.cpu())
         print(f"验证集 accuracy_score: {float_to_percent(acc)}")
         print(f"验证集 auc: {float_to_percent(auc)}")
@@ -214,6 +216,7 @@ if __name__ == '__main__':
 
     total_val_loss = 0.0
     y_hat_total = torch.randn(0, 5)
+    y_float_hat_total = torch.randn(0, 5)
     y_total = torch.randn(0, 5)
 
     xs = torch.randn(0, 64)
@@ -230,6 +233,7 @@ if __name__ == '__main__':
 
             # 用来计算整体指标
             total_val_loss += loss.item()
+            y_float_hat_total = torch.cat([y_float_hat_total.cpu(), y_hat], dim=0)
             y_hat = transact(y_hat).to(device)
             y_hat_total = torch.cat([y_hat_total, OR2OEN(y_hat)], dim=0)
             y_total = torch.cat([y_total, OR2OEN(y)], dim=0)
@@ -265,7 +269,7 @@ if __name__ == '__main__':
     print(f"测试集整体Loss: {total_val_loss}")
 
     acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
-    auc = roc_auc_score(y_total.cpu(), y_hat_total.cpu())
+    auc = auROC(y_total.cpu(), y_float_hat_total.cpu())
     class_acc = class_acc(y_total.cpu(), y_hat_total.cpu())
     aod = AOD(y_total.cpu(), y_hat_total.cpu())
     print(f"测试集 accuracy_score: {float_to_percent(acc)}")

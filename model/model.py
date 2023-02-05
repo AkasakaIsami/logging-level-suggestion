@@ -47,7 +47,13 @@ class MyBiLSTM(nn.Module):
         self.lstm = nn.LSTM(input_size=128, hidden_size=64, num_layers=self.num_layers, batch_first=True,
                             bidirectional=True)
         self.dropout = nn.Dropout(p=0.2)
-        self.linear = nn.Linear(128, 5)
+        self.linear = nn.Sequential(Linear(128, 64, weight_initializer='kaiming_uniform'),
+                                    nn.LeakyReLU(),
+                                    Linear(64, 32, weight_initializer='kaiming_uniform'),
+                                    nn.LeakyReLU(),
+                                    Linear(32, 5, weight_initializer='kaiming_uniform'),
+                                    )
+
         self.act = nn.Sigmoid()
 
     def forward(self, x, idxs):
@@ -67,8 +73,8 @@ class MyBiLSTM(nn.Module):
 
         h = temp
         h = self.dropout(h)
-        record = h
         h = self.linear(h)
+        record = h
         out = self.act(h)
 
         return record, out
@@ -138,42 +144,17 @@ class MyOutRGCN(nn.Module):
         super().__init__()
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        in_channels = 128
-        hidden_channels = 128
-        out_channels = 5
+        self.conv_0 = RGCNConv(128, 64, num_relations=2)
+        self.bn_0 = BatchNorm(64)
+        self.conv_1 = RGCNConv(64, 64, num_relations=2)
+        self.bn_1 = BatchNorm(64)
 
-        self.conv_0 = RGCNConv(in_channels, hidden_channels, num_relations=2)
-        self.conv_1 = RGCNConv(hidden_channels, hidden_channels, num_relations=2)
-        self.mlp = Linear(hidden_channels, out_channels, weight_initializer='kaiming_uniform')
-
-    def forward(self, data):
-        x = data.x
-        edge_index = data.edge_index
-        edge_type = data.edge_type
-
-        h = F.leaky_relu_(self.conv_0(x, edge_index, edge_type))
-        h = F.leaky_relu_(self.conv_1(h, edge_index, edge_type))
-
-        idx = data.idx
-        h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
-        out = torch.sigmoid(self.mlp(h))
-        return h, out
-
-
-class MyOutRGAT(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-        in_channels = 128
-        hidden_channels = 128
-        out_channels = 5
-
-        self.conv_0 = RGATConv(128, 128, num_relations=2, heads=2)
-        self.bn_0 = BatchNorm(2 * 128)
-        self.conv_1 = RGATConv(2 * 128, 128, num_relations=2, heads=1)
-        self.bn_1 = BatchNorm(128)
-        self.mlp = Linear(hidden_channels, out_channels, weight_initializer='kaiming_uniform')
+        self.mlp = nn.Sequential(Linear(64, 32, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(32, 16, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(16, 5, weight_initializer='kaiming_uniform'),
+                                 )
 
     def forward(self, data):
         x = data.x
@@ -187,7 +168,44 @@ class MyOutRGAT(nn.Module):
 
         idx = data.idx
         h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
-        out = torch.sigmoid(self.mlp(h))
+        h = self.mlp(h)
+        out = torch.sigmoid(h)
+        return h, out
+
+
+class MyOutRGAT(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        self.conv_0 = RGATConv(128, 128, num_relations=2, heads=1)
+        self.bn_0 = BatchNorm(128)
+        self.conv_1 = RGATConv(128, 64, num_relations=2, heads=1)
+        self.bn_1 = BatchNorm(64)
+
+        self.mlp = nn.Sequential(Linear(64, 32, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(32, 16, weight_initializer='kaiming_uniform'),
+                                 nn.LeakyReLU(),
+                                 Linear(16, 5, weight_initializer='kaiming_uniform'),
+                                 )
+
+    def forward(self, data):
+        x = data.x
+        edge_index = data.edge_index
+        edge_type = data.edge_type
+
+        h = F.leaky_relu_(self.conv_0(x, edge_index, edge_type))
+        h = self.bn_0(h)
+        h = F.leaky_relu_(self.conv_1(h, edge_index, edge_type))
+        h = self.bn_1(h)
+        # h = F.leaky_relu_(self.conv_2(h, edge_index, edge_type))
+        # h = self.bn_2(h)
+
+        idx = data.idx
+        h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))
+        h = self.mlp(h)
+        out = torch.sigmoid(h)
         return h, out
 
 

@@ -78,6 +78,8 @@ class MyDataset(InMemoryDataset):
             method = item['method']
             path = os.path.join(project_root, clz, method)
 
+            print(f"{clz},{method}")
+
             files = os.listdir(path)
             method_graph_file = None
             statement_graphs_file = None
@@ -259,7 +261,7 @@ class MyDataset(InMemoryDataset):
             source = int(edge.get_source()[1:])
             destination = int(edge.get_destination()[1:])
 
-            if source >= len(index_map) or destination >= len(index_map):
+            if not source in index_map.keys() or not destination in index_map.keys():
                 continue
 
             source = index_map[source]
