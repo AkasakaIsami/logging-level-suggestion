@@ -19,7 +19,7 @@ from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, ten
 if __name__ == '__main__':
 
     # 第一步：训练配置
-    project = 'kafka'
+    project = 'hbase'
     BS = 15
     LR = 5e-3
     EPOCHS = 100
@@ -64,6 +64,10 @@ if __name__ == '__main__':
                 x = torch.cat([x, ast.x], dim=0)
 
             dfg_edge_index = info['edges'].tolist()[0][1].long()
+            temp = torch.zeros(2, dfg_edge_index.shape[1]).long()
+            temp[0] = dfg_edge_index[1]
+            temp[1] = dfg_edge_index[0]
+            dfg_edge_index = torch.cat([dfg_edge_index, temp], dim=1)
 
             y = data.y
             y = y.reshape(1, y.shape[0])
@@ -140,6 +144,9 @@ if __name__ == '__main__':
         y_hat_total = torch.randn(0, 5)
         y_total = torch.randn(0, 5)
 
+        y_hat_or_total = torch.randn(0, 5)
+        y_or_total = torch.randn(0, 5)
+
         xs = torch.randn(0, 5)
         ys = []
 
@@ -156,7 +163,10 @@ if __name__ == '__main__':
                 # 用来计算整体指标
                 total_val_loss += loss.item()
                 y_hat = transact(y_hat).to(device)
+                y_hat_or_total = torch.cat([y_hat_or_total, y_hat.cpu()], dim=0)
                 y_hat_total = torch.cat([y_hat_total.cpu(), OR2OEN(y_hat)], dim=0)
+
+                y_or_total = torch.cat([y_or_total.cpu(), y.cpu()], dim=0)
                 y_total = torch.cat([y_total.cpu(), OR2OEN(y)], dim=0)
 
                 # 根据实际lable
@@ -180,7 +190,7 @@ if __name__ == '__main__':
         print(f"验证集整体Loss: {total_val_loss}")
 
         acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
-        auc = roc_auc_score(y_total.cpu(), y_hat_total.cpu())
+        auc = roc_auc_score(y_or_total.cpu(), y_hat_or_total.cpu(), average='micro', multi_class='ovo')
         aod = AOD(y_total.cpu(), y_hat_total.cpu())
         print(f"验证集 accuracy_score: {float_to_percent(acc)}")
         print(f"验证集 auc: {float_to_percent(auc)}")
@@ -208,12 +218,15 @@ if __name__ == '__main__':
     y_hat_total = torch.randn(0, 5)
     y_total = torch.randn(0, 5)
 
+    y_hat_or_total = torch.randn(0, 5)
+    y_or_total = torch.randn(0, 5)
+
     xs = torch.randn(0, 5)
     ys = []
 
     record_file = open(os.path.join('./', 'result', 'result.txt'), 'w')
 
-    model.eval()
+    best_model.eval()
     with torch.no_grad():
         for i, data in enumerate(test_loader):
 
@@ -221,13 +234,16 @@ if __name__ == '__main__':
             y = data.y.float()
             ids = data.id
 
-            h, y_hat = model(data)
+            h, y_hat = best_model(data)
             loss = loss_function(y_hat, y)
 
             # 用来计算整体指标
             total_val_loss += loss.item()
             y_hat = transact(y_hat).to(device)
+            y_hat_or_total = torch.cat([y_hat_or_total, y_hat.cpu()], dim=0)
             y_hat_total = torch.cat([y_hat_total.cpu(), OR2OEN(y_hat)], dim=0)
+
+            y_or_total = torch.cat([y_or_total.cpu(), y.cpu()], dim=0)
             y_total = torch.cat([y_total.cpu(), OR2OEN(y)], dim=0)
 
             # 这里帮助可视化
@@ -261,7 +277,7 @@ if __name__ == '__main__':
     print(f"测试集整体Loss: {total_val_loss}")
 
     acc = accuracy_score(y_total.cpu(), y_hat_total.cpu())
-    auc = roc_auc_score(y_total.cpu(), y_hat_total.cpu())
+    auc = roc_auc_score(y_or_total.cpu(), y_hat_or_total.cpu(), average='micro', multi_class='ovo')
     class_acc = class_acc(y_total.cpu(), y_hat_total.cpu())
     aod = AOD(y_total.cpu(), y_hat_total.cpu())
     print(f"测试集 accuracy_score: {float_to_percent(acc)}")
