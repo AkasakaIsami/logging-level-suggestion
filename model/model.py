@@ -146,14 +146,14 @@ class MyOutRGCN(nn.Module):
 
         self.conv_0 = RGCNConv(128, 64, num_relations=2)
         self.bn_0 = BatchNorm(64)
-        self.conv_1 = RGCNConv(64, 64, num_relations=2)
-        self.bn_1 = BatchNorm(64)
+        self.conv_1 = RGCNConv(64, 32, num_relations=2)
+        self.bn_1 = BatchNorm(32)
 
-        self.mlp = nn.Sequential(Linear(64, 32, weight_initializer='kaiming_uniform'),
+        self.mlp = nn.Sequential(Linear(32, 16, weight_initializer='kaiming_uniform'),
                                  nn.LeakyReLU(),
-                                 Linear(32, 16, weight_initializer='kaiming_uniform'),
+                                 Linear(16, 8, weight_initializer='kaiming_uniform'),
                                  nn.LeakyReLU(),
-                                 Linear(16, 5, weight_initializer='kaiming_uniform'),
+                                 Linear(8, 5, weight_initializer='kaiming_uniform'),
                                  )
 
     def forward(self, data):
@@ -178,9 +178,9 @@ class MyOutRGAT(nn.Module):
         super().__init__()
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.conv_0 = RGATConv(128, 128, num_relations=2, heads=1)
-        self.bn_0 = BatchNorm(128)
-        self.conv_1 = RGATConv(128, 64, num_relations=2, heads=1)
+        self.conv_0 = RGATConv(128, 64, num_relations=2, heads=2,concat=False)
+        self.bn_0 = BatchNorm(64)
+        self.conv_1 = RGATConv(64, 64, num_relations=2, heads=1)
         self.bn_1 = BatchNorm(64)
 
         self.mlp = nn.Sequential(Linear(64, 32, weight_initializer='kaiming_uniform'),
@@ -199,8 +199,6 @@ class MyOutRGAT(nn.Module):
         h = self.bn_0(h)
         h = F.leaky_relu_(self.conv_1(h, edge_index, edge_type))
         h = self.bn_1(h)
-        # h = F.leaky_relu_(self.conv_2(h, edge_index, edge_type))
-        # h = self.bn_2(h)
 
         idx = data.idx
         h = torch.index_select(h, dim=0, index=idx2index(idx).to(self.device))

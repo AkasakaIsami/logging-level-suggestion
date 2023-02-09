@@ -18,7 +18,7 @@ from util import float_to_percent, idx2index, transact, OR2OEN, AOD, visual, ten
 if __name__ == '__main__':
 
     # 第一步：训练配置
-    project = 'hbase'
+    project = 'zookeeper'
     BS = 15
     LR = 5e-3
     EPOCHS = 100
